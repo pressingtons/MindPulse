@@ -1,4 +1,5 @@
 # MindPulse
+CURRENT PERMALINK DIFFERENT IP ADDRESSES: https://ubiquitous-kataifi-830fc7.netlify.app/
 
 MindPulse is a calm, adaptive routine companion. A user records a short voice check-in; the app measures simple on-device voice-rhythm signals—energy variation, pause space, and pace—to adapt the next block of their day.
 
