@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="MindPulse turns a short voice check-in into an intentional, adaptive routine."
+    />
+    <meta name="theme-color" content="#141633" />
+    <title>MindPulse — Meet yourself where you are</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+
+    <main class="app-shell">
+      <aside class="sidebar" aria-label="MindPulse navigation">
+        <a class="brand" href="#dashboard" aria-label="MindPulse home">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span>mind<span>pulse</span></span>
+        </a>
+
+        <nav class="nav-list">
+          <button class="nav-item is-active" type="button" data-view-target="dashboard">
+            <span class="nav-icon">⌂</span> Today
+          </button>
+          <button class="nav-item" type="button" data-view-target="trends">
+            <span class="nav-icon">↗</span> Patterns
+          </button>
+          <button class="nav-item" type="button" data-view-target="resets">
+            <span class="nav-icon">✦</span> Reset room
+          </button>
+        </nav>
+
+        <section class="sidebar-card">
+          <span class="eyebrow">Daily capacity</span>
+          <strong><span id="sidebar-score">74</span><small>/100</small></strong>
+          <div class="mini-progress"><span id="sidebar-progress"></span></div>
+          <p id="sidebar-copy">A steady place to begin.</p>
+        </section>
+
+        <button class="privacy-button" id="privacy-button" type="button">
+          <span>♧</span> Privacy, by default
+        </button>
+      </aside>
+
+      <section class="content">
+        <header class="topbar">
+          <button class="mobile-menu" id="mobile-menu" type="button" aria-label="Open navigation">☰</button>
+          <div>
+            <p class="topbar-date" id="today-date"></p>
+            <h1 id="page-title">Good morning, Alex.</h1>
+          </div>
+          <div class="topbar-actions">
+            <button class="icon-button" id="open-guide" type="button" aria-label="How MindPulse works">?</button>
+            <button class="avatar" type="button" aria-label="Profile">AM</button>
+          </div>
+        </header>
+
+        <section class="view is-visible" id="dashboard-view" data-view="dashboard">
+          <section class="welcome-card">
+            <div class="welcome-copy">
+              <span class="status-pill"><span></span> Your pace, not a prescription</span>
+              <h2>Make room before you make progress.</h2>
+              <p>
+                Take a 10-second voice check-in. MindPulse reads simple voice-rhythm signals on this device and reshapes today’s plan around the energy you actually have.
+              </p>
+              <button class="text-action" id="jump-to-checkin" type="button">Start today’s check-in <span>↓</span></button>
+            </div>
+            <div class="orbit-graphic" aria-hidden="true">
+              <div class="orbit orbit-a"></div>
+              <div class="orbit orbit-b"></div>
+              <div class="orb orb-main"></div>
+              <div class="orb orb-small"></div>
+              <div class="orbit-caption">P<br />U<br />L<br />S<br />E</div>
+            </div>
+          </section>
+
+          <div class="dashboard-grid">
+            <section class="card voice-card" id="checkin-card">
+              <div class="card-heading">
+                <div>
+                  <span class="eyebrow">Voice rhythm check-in</span>
+                  <h2>How are you arriving?</h2>
+                </div>
+                <span class="time-chip">10 sec</span>
+              </div>
+
+              <p class="prompt" id="voice-prompt">“What would make today feel a little lighter?”</p>
+              <div class="wave-shell" aria-label="Live voice waveform">
+                <canvas id="waveform" width="740" height="176"></canvas>
+                <div class="wave-state" id="wave-state">Ready when you are</div>
+                <div class="recording-dot" id="recording-dot" aria-hidden="true"></div>
+              </div>
+              <div class="record-controls">
+                <button class="record-button" id="record-button" type="button">
+                  <span class="record-icon" aria-hidden="true"></span>
+                  <span id="record-label">Begin check-in</span>
+                </button>
+                <span class="timer" id="record-timer">00:10</span>
+                <button class="secondary-button" id="demo-button" type="button">Run demo</button>
+              </div>
+              <p class="fine-print">Your raw recording stays in this browser. Only an optional text summary can be sent to the AI coach.</p>
+            </section>
+
+            <section class="card pulse-card">
+              <div class="card-heading compact">
+                <div>
+                  <span class="eyebrow">Today’s pulse</span>
+                  <h2 id="pulse-title">Steady, with a soft edge</h2>
+                </div>
+                <span class="signal-dot" id="signal-dot"></span>
+              </div>
+              <div class="score-row">
+                <div class="score-ring" id="score-ring"><span id="pulse-score">74</span></div>
+                <div>
+                  <p id="pulse-description">A good day for meaningful work with intentional breathing room.</p>
+                  <button class="text-action small" id="view-signals" type="button">See the signals <span>→</span></button>
+                </div>
+              </div>
+              <div class="signal-list" id="signal-list">
+                <div><span>Voice pace</span><strong id="pace-value">Centered</strong></div>
+                <div><span>Energy variation</span><strong id="energy-value">Balanced</strong></div>
+                <div><span>Pause space</span><strong id="pause-value">Present</strong></div>
+              </div>
+            </section>
+
+            <section class="card plan-card">
+              <div class="card-heading compact">
+                <div>
+                  <span class="eyebrow">Adaptive plan</span>
+                  <h2 id="plan-title">Build, then breathe</h2>
+                </div>
+                <button class="icon-button subtle" id="refresh-plan" type="button" aria-label="Refresh plan">↻</button>
+              </div>
+              <p id="plan-intro">One focused block, protected by two small recovery cues.</p>
+              <ol class="plan-list" id="plan-list">
+                <li><span>01</span><div><strong>Deep work sprint</strong><small>45 min · Your hardest useful task</small></div></li>
+                <li><span>02</span><div><strong>Visual distance</strong><small>5 min · Window, walk, or far focus</small></div></li>
+                <li><span>03</span><div><strong>Light close-out</strong><small>15 min · Clear one small loop</small></div></li>
+              </ol>
+              <button class="plan-button" id="start-plan" type="button">Begin first step <span>→</span></button>
+            </section>
+
+            <section class="card coach-card">
+              <div class="coach-mark" aria-hidden="true">✦</div>
+              <div>
+                <span class="eyebrow">MindPulse coach</span>
+                <h2>A note for this moment</h2>
+              </div>
+              <p id="coach-message">You don’t need to earn a calm start. Begin with what matters, then protect the space around it.</p>
+              <div class="coach-footer"><span id="coach-source">Local reflection</span><button class="text-action small" id="refresh-coach" type="button">Refresh note <span>↻</span></button></div>
+            </section>
+          </div>
+
+          <section class="checkin-history">
+            <div class="section-heading">
+              <div><span class="eyebrow">Your rhythm</span><h2>Recent check-ins</h2></div>
+              <button class="text-action small" type="button" data-view-target="trends">See patterns <span>→</span></button>
+            </div>
+            <div class="history-list" id="history-list"></div>
+          </section>
+        </section>
+
+        <section class="view" id="trends-view" data-view="trends">
+          <section class="view-hero">
+            <span class="status-pill"><span></span> Local history</span>
+            <h2>Your rhythm is a pattern, not a grade.</h2>
+            <p>Check-ins are stored only in this browser. Watch for the routines that support you, not for a score to chase.</p>
+          </section>
+          <section class="card trend-card">
+            <div class="card-heading compact"><div><span class="eyebrow">Seven check-ins</span><h2>Capacity over time</h2></div><span class="trend-legend"><i></i> Voice-rhythm signal</span></div>
+            <div class="chart-wrap"><svg id="trend-chart" viewBox="0 0 700 260" preserveAspectRatio="none" aria-label="Capacity trend chart"></svg></div>
+            <div class="chart-days" id="chart-days"></div>
+          </section>
+          <div class="insight-grid">
+            <article class="insight-card"><span>✦</span><h3>What’s working</h3><p id="trend-insight">Your most settled check-ins tend to follow a real pause between focused tasks.</p></article>
+            <article class="insight-card"><span>◌</span><h3>Try next</h3><p>When your signal is elevated, trade an ambitious restart for one physical reset and a smaller task.</p></article>
+          </div>
+        </section>
+
+        <section class="view" id="resets-view" data-view="resets">
+          <section class="view-hero">
+            <span class="status-pill"><span></span> Reset room</span>
+            <h2>Small resets that change the next hour.</h2>
+            <p>Pick what matches the moment. These are invitations, never obligations.</p>
+          </section>
+          <div class="reset-grid">
+            <article class="reset-card reset-breathe"><span class="reset-icon">◌</span><span class="eyebrow">3 minutes</span><h3>Physiological sigh</h3><p>Two easy inhales, one long exhale. A simple way to create a pause.</p><button class="reset-start" type="button" data-reset="Physiological sigh" data-minutes="3">Start reset <span>→</span></button></article>
+            <article class="reset-card reset-vision"><span class="reset-icon">⌁</span><span class="eyebrow">5 minutes</span><h3>Visual distance</h3><p>Rest your attention by looking far away, then noticing three quiet details.</p><button class="reset-start" type="button" data-reset="Visual distance" data-minutes="5">Start reset <span>→</span></button></article>
+            <article class="reset-card reset-body"><span class="reset-icon">✣</span><span class="eyebrow">4 minutes</span><h3>Somatic reset</h3><p>Unclench your jaw, lower your shoulders, and move a little on purpose.</p><button class="reset-start" type="button" data-reset="Somatic reset" data-minutes="4">Start reset <span>→</span></button></article>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <dialog class="dialog" id="info-dialog">
+      <button class="dialog-close" type="button" aria-label="Close">×</button>
+      <span class="eyebrow">How MindPulse works</span>
+      <h2>Designed for reflection, not diagnosis.</h2>
+      <p>MindPulse measures simple audio patterns such as energy, pauses, and speaking pace while you record. It uses those patterns as a personal routine-planning signal, never as a medical assessment.</p>
+      <div class="dialog-list"><div><span>1</span><p><strong>Check in</strong> Record up to 10 seconds on your device.</p></div><div><span>2</span><p><strong>Reflect</strong> See transparent rhythm signals, not hidden health claims.</p></div><div><span>3</span><p><strong>Adapt</strong> Receive a gentler or more focused next step.</p></div></div>
+      <p class="fine-print">If stress feels persistent, overwhelming, or unsafe, reach out to a trusted person or a qualified professional.</p>
+    </dialog>
+
+    <dialog class="dialog timer-dialog" id="timer-dialog">
+      <button class="dialog-close" type="button" aria-label="Close">×</button>
+      <span class="eyebrow" id="timer-name">Reset room</span>
+      <h2 id="timer-title">Breathe with the next minute.</h2>
+      <div class="reset-timer" id="reset-timer">03:00</div>
+      <p id="timer-instruction">Slow down the exhale. There is nothing to fix right now.</p>
+      <button class="plan-button" id="timer-toggle" type="button">Pause reset</button>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
