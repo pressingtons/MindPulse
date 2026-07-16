@@ -1,697 +1,126 @@
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
-const MAX_RECORDING_SECONDS = 10;
-const HISTORY_KEY = "mindpulse-checkin-history-v1";
+const HISTORY_KEY = "mindpulse-baby-history-v1";
+const Q_TABLE_KEY = "mindpulse-baby-q-table-v1";
+const SETTINGS_KEY = "mindpulse-baby-settings-v1";
+const ACTIONS = ["noNoise", "whiteNoise", "pinkNoise", "softLullaby"];
+const ACTION_NAMES = { noNoise: "No sound playing", whiteNoise: "Playing: White Noise", pinkNoise: "Playing: Pink Noise", softLullaby: "Playing: Soft Lullaby" };
+const STATES = ["sleeping", "restless", "awake"];
+const RESPONSE_DURATION = 5 * 60 * 1000;
 
 const elements = {
-  canvas: $("#waveform"),
-  checkinCard: $("#checkin-card"),
-  coachMessage: $("#coach-message"),
-  coachSource: $("#coach-source"),
-  demoButton: $("#demo-button"),
-  energyValue: $("#energy-value"),
-  historyList: $("#history-list"),
-  paceValue: $("#pace-value"),
-  pageTitle: $("#page-title"),
-  pauseValue: $("#pause-value"),
-  planIntro: $("#plan-intro"),
-  planList: $("#plan-list"),
-  planTitle: $("#plan-title"),
-  pulseDescription: $("#pulse-description"),
-  pulseScore: $("#pulse-score"),
-  pulseTitle: $("#pulse-title"),
-  recordButton: $("#record-button"),
-  recordLabel: $("#record-label"),
-  recordingDot: $("#recording-dot"),
-  recordTimer: $("#record-timer"),
-  scoreRing: $("#score-ring"),
-  sidebarCopy: $("#sidebar-copy"),
-  sidebarProgress: $("#sidebar-progress"),
-  sidebarScore: $("#sidebar-score"),
-  signalDot: $("#signal-dot"),
-  signalList: $("#signal-list"),
-  timerDialog: $("#timer-dialog"),
-  timerInstruction: $("#timer-instruction"),
-  timerName: $("#timer-name"),
-  timerTitle: $("#timer-title"),
-  timerToggle: $("#timer-toggle"),
-  todayDate: $("#today-date"),
-  toast: $("#toast"),
-  trendChart: $("#trend-chart"),
-  trendDays: $("#chart-days"),
-  trendInsight: $("#trend-insight"),
-  voicePrompt: $("#voice-prompt"),
-  waveState: $("#wave-state"),
+  activity: $("#activity-value"), ambient: $("#ambient-value"), ambientToggle: $("#ambient-toggle"), canvas: $("#waveform"), chart: $("#trend-chart"), chartDays: $("#chart-days"), demo: $("#demo-button"), history: $("#history-list"), learning: $("#learning-label"), monitor: $("#monitor-button"), monitorDuration: $("#monitor-duration"), monitorLabel: $("#monitor-label"), pageTitle: $("#page-title"), responseDescription: $("#response-description"), responseMeter: $("#response-meter"), responseTitle: $("#response-title"), rustle: $("#rustle-value"), score: $("#sleep-score"), scoreRing: $("#score-ring"), sidebarCopy: $("#sidebar-copy"), sidebarProgress: $("#sidebar-progress"), sidebarScore: $("#sidebar-score"), signalDot: $("#signal-dot"), sleepDescription: $("#sleep-description"), sleepState: $("#sleep-state-title"), toast: $("#toast"), trendInsight: $("#trend-insight"), waveState: $("#wave-state"), recordingDot: $("#recording-dot")
 };
 
-const audioState = {
-  analyser: null,
-  animationFrame: null,
-  audioContext: null,
-  dataArray: null,
-  interval: null,
-  isRecording: false,
-  mediaRecorder: null,
-  remaining: MAX_RECORDING_SECONDS,
-  samples: [],
-  source: null,
-  stream: null,
-};
-
-const resetState = {
-  interval: null,
-  remainingSeconds: 0,
-  running: false,
-};
-
-const prompts = [
-  "“What would make today feel a little lighter?”",
-  "“What is taking up the most space in your mind?”",
-  "“What pace would feel kind to you today?”",
-];
-
-const plans = {
-  activated: [
-    {
-      intro: "Your signal suggests a gentler start. Reduce the load, then rebuild momentum.",
-      title: "Restore, then re-enter",
-      steps: [
-        ["Somatic reset", "4 min · Jaw, shoulders, and a longer exhale"],
-        ["One low-friction task", "20 min · Choose the clearest next move"],
-        ["Protected pause", "8 min · No input, no catching up"],
-      ],
-    },
-    {
-      intro: "Today can still move forward, just with a smaller first promise.",
-      title: "Settle the system",
-      steps: [
-        ["Visual distance", "5 min · Find the horizon or a far corner"],
-        ["Gentle admin sprint", "25 min · Close one open loop"],
-        ["Warm transition", "6 min · Water, movement, no scrolling"],
-      ],
-    },
-  ],
-  steady: [
-    {
-      intro: "One focused block, protected by two small recovery cues.",
-      title: "Build, then breathe",
-      steps: [
-        ["Deep work sprint", "45 min · Your hardest useful task"],
-        ["Visual distance", "5 min · Window, walk, or far focus"],
-        ["Light close-out", "15 min · Clear one small loop"],
-      ],
-    },
-    {
-      intro: "Your capacity has room for momentum—keep it intentional.",
-      title: "Focus with space",
-      steps: [
-        ["Priority block", "50 min · Build the important thing"],
-        ["Body check", "3 min · Stand, stretch, drink water"],
-        ["Creative finish", "20 min · An energizing smaller task"],
-      ],
-    },
-  ],
-};
-
-let currentCheckIn = {
-  energyLabel: "Balanced",
-  paceLabel: "Centered",
-  pauseLabel: "Present",
-  planIndex: 0,
-  score: 74,
-  state: "steady",
-  summary: "A balanced voice-rhythm check-in.",
-};
-
-function clamp(value, minimum, maximum) {
-  return Math.max(minimum, Math.min(maximum, value));
-}
-
-function average(values) {
-  return values.reduce((total, value) => total + value, 0) / values.length;
-}
-
-function standardDeviation(values, mean) {
-  return Math.sqrt(average(values.map((value) => (value - mean) ** 2)));
-}
-
-function formatDate(date) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    day: "numeric",
-    weekday: "long",
-  }).format(date);
-}
-
-function shortDate(date) {
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date);
-}
-
-function formatDuration(seconds) {
-  const minutes = Math.floor(seconds / 60).toString().padStart(2, "0");
-  const remainingSeconds = Math.max(0, seconds % 60).toString().padStart(2, "0");
-  return `${minutes}:${remainingSeconds}`;
-}
-
-function getPlan(checkIn = currentCheckIn) {
-  const variants = plans[checkIn.state] || plans.steady;
-  return variants[checkIn.planIndex % variants.length];
-}
-
-function createSeedHistory() {
-  const baseScores = [63, 69, 58, 76, 72, 66, 74];
-  return baseScores.map((score, historyIndex) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (baseScores.length - historyIndex - 1));
-    return {
-      date: date.toISOString(),
-      score,
-      state: score < 62 ? "activated" : "steady",
-      title: score < 62 ? "Restore, then re-enter" : "Build, then breathe",
-    };
-  });
-}
-
-function loadHistory() {
-  try {
-    const stored = JSON.parse(localStorage.getItem(HISTORY_KEY));
-    return Array.isArray(stored) && stored.length ? stored : createSeedHistory();
-  } catch {
-    return createSeedHistory();
-  }
-}
-
+const monitoring = { analyser: null, animationFrame: null, audioContext: null, dataArray: null, frequencyArray: null, isActive: false, samples: [], source: null, startedAt: null, stream: null };
+const playback = { context: null, nodes: [], timer: null };
+let settings = load(SETTINGS_KEY, { ambientEnabled: true });
+let qTable = loadQTable();
 let history = loadHistory();
+let current = { action: "noNoise", features: { activitySpike: 0.04, ambientFloor: 0.03, rustleDensity: 0.08 }, score: 82, state: "sleeping" };
 
-function saveHistory() {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-14)));
+function load(key, fallback) { try { return { ...fallback, ...JSON.parse(localStorage.getItem(key) || "{}") }; } catch { return fallback; } }
+function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+function average(values) { return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0; }
+function formatDate(date) { return new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric" }).format(date); }
+function actionLabel(action) { return ACTION_NAMES[action] || ACTION_NAMES.noNoise; }
+
+function loadQTable() {
+  const stored = load(Q_TABLE_KEY, {});
+  const starterScores = { sleeping: { noNoise: 1.5 }, restless: { pinkNoise: 1.5 }, awake: { whiteNoise: 1.5 } };
+  return Object.fromEntries(STATES.map((state) => [state, Object.fromEntries(ACTIONS.map((action) => [action, Number(stored[state]?.[action]) || starterScores[state][action] || 0]))]));
+}
+function saveModel() { localStorage.setItem(Q_TABLE_KEY, JSON.stringify(qTable)); localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }
+function createSeedHistory() { return [74, 79, 70, 84, 76, 81, 82].map((score, index) => { const date = new Date(); date.setDate(date.getDate() - (6 - index)); return { date: date.toISOString(), score, state: score < 62 ? "awake" : score < 77 ? "restless" : "sleeping" }; }); }
+function loadHistory() { try { const stored = JSON.parse(localStorage.getItem(HISTORY_KEY)); return Array.isArray(stored) && stored.length ? stored : createSeedHistory(); } catch { return createSeedHistory(); } }
+function saveHistory() { localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-21))); }
+function showToast(message) { elements.toast.textContent = message; elements.toast.classList.add("is-visible"); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => elements.toast.classList.remove("is-visible"), 3600); }
+
+function classify(features) {
+  if (features.activitySpike > 0.22 || (features.rustleDensity > 0.6 && features.activitySpike > 0.12)) return "awake";
+  if (features.activitySpike > 0.08 || features.rustleDensity > 0.27) return "restless";
+  return "sleeping";
+}
+function sleepScore(features, state) {
+  const base = 100 - features.activitySpike * 155 - features.rustleDensity * 35 - features.ambientFloor * 18;
+  return Math.round(clamp(base - (state === "awake" ? 20 : state === "restless" ? 7 : 0), 20, 98));
+}
+function chooseAction(state) {
+  if (!settings.ambientEnabled) return "noNoise";
+  if (Math.random() < 0.16) return ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
+  return ACTIONS.reduce((best, action) => qTable[state][action] > qTable[state][best] ? action : best, ACTIONS[0]);
+}
+function updateQ(previousState, action, nextState) {
+  const reward = nextState === "sleeping" ? 10 : nextState === "awake" ? -10 : -2;
+  const bestNext = Math.max(...ACTIONS.map((candidate) => qTable[nextState][candidate]));
+  qTable[previousState][action] += 0.28 * (reward + 0.72 * bestNext - qTable[previousState][action]);
+  saveModel();
+  return reward;
+}
+function describeState(state) { return state === "sleeping" ? ["Deep sleep", "Low activity and a steady room baseline."] : state === "restless" ? ["Restless", "A few low-to-mid sound shifts suggest the room may be unsettled."] : ["Active disturbance", "A larger activity spike was detected. Please check the room directly if you are concerned."]; }
+function level(value, low, high, labels) { return value > high ? labels[2] : value > low ? labels[1] : labels[0]; }
+
+function renderCurrent() {
+  const [title, description] = describeState(current.state);
+  elements.sleepState.textContent = title; elements.sleepDescription.textContent = description; elements.score.textContent = current.score; elements.sidebarScore.textContent = current.score;
+  elements.scoreRing.style.setProperty("--score", current.score); elements.sidebarProgress.style.width = `${current.score}%`;
+  elements.sidebarCopy.textContent = current.state === "sleeping" ? "A calm baseline so far." : current.state === "restless" ? "Watching for a calmer window." : "A room check may be useful.";
+  elements.activity.textContent = level(current.features.activitySpike, 0.08, 0.22, ["Low", "Rising", "High"]);
+  elements.rustle.textContent = level(current.features.rustleDensity, 0.27, 0.6, ["Low", "Moderate", "Frequent"]);
+  elements.ambient.textContent = level(current.features.ambientFloor, 0.06, 0.16, ["Quiet", "Present", "Elevated"]);
+  elements.signalDot.classList.toggle("is-alert", current.state === "awake"); elements.signalDot.classList.toggle("is-restless", current.state === "restless");
+  elements.responseTitle.textContent = actionLabel(current.action); elements.responseDescription.textContent = settings.ambientEnabled ? `Local model selected this response for a ${title.toLowerCase()} state.` : "Ambient responses are paused by a parent control.";
+  elements.responseMeter.style.width = `${Math.round(Math.max(...ACTIONS.map((action) => qTable[current.state][action])) * 4 + 15)}%`;
+  const learned = Object.values(qTable).flat().some((score) => score !== 0); elements.learning.textContent = learned ? "Local learning: adapting to this room" : "Local learning: starting fresh";
+}
+function addHistory() { const entryDate = new Date(); const entry = { date: entryDate.toISOString(), score: current.score, state: current.state }; const last = history.at(-1); const sameHour = last && new Date(last.date).getFullYear() === entryDate.getFullYear() && new Date(last.date).getMonth() === entryDate.getMonth() && new Date(last.date).getDate() === entryDate.getDate() && new Date(last.date).getHours() === entryDate.getHours(); if (sameHour) history[history.length - 1] = entry; else history.push(entry); history = history.slice(-21); saveHistory(); }
+function renderHistory() { elements.history.innerHTML = history.slice(-4).reverse().map((entry) => `<article class="history-item"><time>${new Date(entry.date).toDateString() === new Date().toDateString() ? "Tonight" : new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(entry.date))}</time><strong>${entry.score}<small>/100</small></strong><p>${entry.state === "sleeping" ? "Settled window" : entry.state === "restless" ? "Restless window" : "Active window"}</p><div class="history-meter"><span style="width:${entry.score}%"></span></div></article>`).join(""); }
+function renderChart() {
+  const entries = history.slice(-7), scores = entries.map((entry) => entry.score), w = 700, h = 245, pad = 15;
+  const points = scores.map((score, i) => [pad + ((w - pad * 2) / Math.max(scores.length - 1, 1)) * i, pad + ((98 - score) / 78) * (h - pad * 2)]);
+  const path = points.map((p) => p.join(",")).join(" "); const area = `${pad},${h} ${path} ${w - pad},${h}`;
+  elements.chart.innerHTML = `<defs><linearGradient id="area-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#8b7df0" stop-opacity=".24"/><stop offset="100%" stop-color="#8b7df0" stop-opacity="0"/></linearGradient></defs><line x1="${pad}" x2="${w - pad}" y1="110" y2="110" stroke="#e9e6f1" stroke-dasharray="5 7"/><polygon points="${area}" fill="url(#area-gradient)"/><polyline points="${path}" fill="none" stroke="#6b5ce7" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"/>${points.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i === points.length - 1 ? 6 : 4}" fill="#fff" stroke="#6b5ce7" stroke-width="${i === points.length - 1 ? 4 : 2}"/>`).join("")}`;
+  elements.chartDays.innerHTML = entries.map((entry) => `<span>${new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(new Date(entry.date))}</span>`).join("");
+  const averageScore = Math.round(average(scores)); elements.trendInsight.textContent = averageScore >= 78 ? "The room has had mostly settled windows. Keep using the response that feels appropriate to you." : "The room has had more movement recently. MindPulse will keep its local response scores transparent and adaptable.";
 }
 
-function showToast(message) {
-  elements.toast.textContent = message;
-  elements.toast.classList.add("is-visible");
-  window.clearTimeout(showToast.timeoutId);
-  showToast.timeoutId = window.setTimeout(() => elements.toast.classList.remove("is-visible"), 3600);
+function canvasContext() { const c = elements.canvas.getContext("2d"), w = elements.canvas.clientWidth || 740, h = elements.canvas.clientHeight || 176, d = devicePixelRatio || 1; if (elements.canvas.width !== w * d || elements.canvas.height !== h * d) { elements.canvas.width = w * d; elements.canvas.height = h * d; } c.setTransform(d, 0, 0, d, 0, 0); return { c, w, h }; }
+function drawWave(data, phase = 0) { const { c, w, h } = canvasContext(); c.clearRect(0, 0, w, h); c.strokeStyle = "rgba(107, 92, 231, .13)"; c.beginPath(); c.moveTo(0, h / 2); c.lineTo(w, h / 2); c.stroke(); const grad = c.createLinearGradient(0, 0, w, 0); grad.addColorStop(0, "rgba(107,92,231,.3)"); grad.addColorStop(.45, "rgba(107,92,231,.95)"); grad.addColorStop(1, "rgba(245,123,112,.44)"); c.strokeStyle = grad; c.lineWidth = 2.1; c.beginPath(); for (let i = 0; i < 150; i += 1) { const x = i / 149 * w, raw = data ? (data[Math.floor(i / 149 * (data.length - 1))] - 128) / 128 : Math.sin(i * .2 + phase) * .08 + Math.sin(i * .08 - phase) * .04, y = h / 2 + raw * h * (data ? .39 : 1); i ? c.lineTo(x, y) : c.moveTo(x, y); } c.stroke(); }
+function drawIdle(timestamp = 0) { if (monitoring.isActive) return; drawWave(null, timestamp / 1000); monitoring.animationFrame = requestAnimationFrame(drawIdle); }
+function setWaveState(message, live = false) { elements.waveState.textContent = message; elements.waveState.classList.toggle("is-live", live); elements.recordingDot.classList.toggle("is-live", live); }
+
+function getFeatures() {
+  monitoring.analyser.getByteTimeDomainData(monitoring.dataArray); monitoring.analyser.getByteFrequencyData(monitoring.frequencyArray);
+  const time = [...monitoring.dataArray].map((value) => (value - 128) / 128); const rms = Math.sqrt(average(time.map((value) => value * value)));
+  const freq = monitoring.frequencyArray, lowEnd = Math.max(2, Math.floor(freq.length * .1)), midEnd = Math.max(lowEnd + 1, Math.floor(freq.length * .38));
+  const lowEnergy = average([...freq.slice(1, lowEnd)]) / 255, midEnergy = average([...freq.slice(lowEnd, midEnd)]) / 255;
+  const ambientFloor = clamp(lowEnergy * .6 + rms * .4, 0, 1); const previous = monitoring.samples.at(-1)?.rms || rms;
+  const features = { activitySpike: clamp(Math.max(0, rms - ambientFloor * .55) * 4 + Math.max(0, rms - previous) * 5, 0, 1), ambientFloor, rustleDensity: clamp(midEnergy * 1.5 + Math.abs(rms - previous) * 5, 0, 1) };
+  monitoring.samples.push({ ...features, rms }); if (monitoring.samples.length > 100) monitoring.samples.shift(); return features;
 }
+function processFeatures(features) { const previousState = current.state, previousAction = current.action, nextState = classify(features); if (monitoring.samples.length > 8) updateQ(previousState, previousAction, nextState); const nextAction = chooseAction(nextState); current = { action: nextAction, features, score: sleepScore(features, nextState), state: nextState }; renderCurrent(); addHistory(); renderHistory(); renderChart(); if (settings.ambientEnabled && nextAction !== previousAction) playAction(nextAction); }
+function monitorLoop() { if (!monitoring.isActive) return; const features = getFeatures(); drawWave(monitoring.dataArray); if (monitoring.samples.length % 30 === 0) processFeatures(features); elements.monitorDuration.textContent = `${Math.floor((Date.now() - monitoring.startedAt) / 60000)} min listening`; monitoring.animationFrame = requestAnimationFrame(monitorLoop); }
 
-function updateTimerLabel() {
-  elements.recordTimer.textContent = `00:${String(audioState.remaining).padStart(2, "0")}`;
+function noiseBuffer(context, pink = false) { const buffer = context.createBuffer(1, context.sampleRate * 2, context.sampleRate), data = buffer.getChannelData(0); let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0; for (let i = 0; i < data.length; i += 1) { const white = Math.random() * 2 - 1; if (pink) { b0 = .99886 * b0 + white * .0555179; b1 = .99332 * b1 + white * .0750759; b2 = .969 * b2 + white * .153852; b3 = .8665 * b3 + white * .3104856; b4 = .55 * b4 + white * .5329522; b5 = -.7616 * b5 - white * .016898; data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * .5362) * .11; b6 = white * .115926; } else data[i] = white * .12; } return buffer; }
+function stopSound() { playback.nodes.forEach((node) => { try { node.stop?.(); node.disconnect?.(); } catch {} }); playback.nodes = []; clearTimeout(playback.timer); }
+function playAction(action, duration = RESPONSE_DURATION) {
+  stopSound(); if (action === "noNoise") return; const Context = window.AudioContext || window.webkitAudioContext; if (!Context) return; const context = playback.context || new Context(); playback.context = context; context.resume(); const gain = context.createGain(); gain.gain.value = .16; gain.connect(context.destination); playback.nodes.push(gain);
+  if (action === "softLullaby") { [261.63, 329.63, 392, 329.63].forEach((frequency, index) => { const oscillator = context.createOscillator(), noteGain = context.createGain(); oscillator.type = "sine"; oscillator.frequency.value = frequency; noteGain.gain.setValueAtTime(0, context.currentTime + index * 1.4); noteGain.gain.linearRampToValueAtTime(.035, context.currentTime + index * 1.4 + .25); noteGain.gain.linearRampToValueAtTime(0, context.currentTime + index * 1.4 + 1.25); oscillator.connect(noteGain).connect(gain); oscillator.start(); oscillator.stop(context.currentTime + 5.8); playback.nodes.push(oscillator, noteGain); }); }
+  else { const source = context.createBufferSource(); source.buffer = noiseBuffer(context, action === "pinkNoise"); source.loop = true; source.connect(gain); source.start(); playback.nodes.push(source); }
+  playback.timer = setTimeout(() => { stopSound(); if (current.action !== "noNoise") { current.action = "noNoise"; renderCurrent(); } }, duration);
 }
-
-function setWaveState(message, isLive = false) {
-  elements.waveState.textContent = message;
-  elements.waveState.classList.toggle("is-live", isLive);
-  elements.recordingDot.classList.toggle("is-live", isLive);
-}
-
-function canvasContext() {
-  const context = elements.canvas.getContext("2d");
-  const displayWidth = elements.canvas.clientWidth || 740;
-  const displayHeight = elements.canvas.clientHeight || 176;
-  const pixelRatio = window.devicePixelRatio || 1;
-
-  if (elements.canvas.width !== displayWidth * pixelRatio || elements.canvas.height !== displayHeight * pixelRatio) {
-    elements.canvas.width = displayWidth * pixelRatio;
-    elements.canvas.height = displayHeight * pixelRatio;
-  }
-
-  context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-  return { context, displayHeight, displayWidth };
-}
-
-function drawWave(data = null, phase = 0) {
-  const { context, displayHeight, displayWidth } = canvasContext();
-  const midline = displayHeight / 2;
-
-  context.clearRect(0, 0, displayWidth, displayHeight);
-  context.lineWidth = 1;
-  context.strokeStyle = "rgba(107, 92, 231, .13)";
-  context.beginPath();
-  context.moveTo(0, midline);
-  context.lineTo(displayWidth, midline);
-  context.stroke();
-
-  const gradient = context.createLinearGradient(0, 0, displayWidth, 0);
-  gradient.addColorStop(0, "rgba(107, 92, 231, .3)");
-  gradient.addColorStop(.45, "rgba(107, 92, 231, .95)");
-  gradient.addColorStop(1, "rgba(245, 123, 112, .44)");
-
-  context.lineWidth = 2.1;
-  context.strokeStyle = gradient;
-  context.beginPath();
-
-  const pointCount = 150;
-  for (let pointIndex = 0; pointIndex < pointCount; pointIndex += 1) {
-    const xPosition = (pointIndex / (pointCount - 1)) * displayWidth;
-    const dataIndex = data ? Math.floor((pointIndex / (pointCount - 1)) * (data.length - 1)) : 0;
-    const rawValue = data ? (data[dataIndex] - 128) / 128 : Math.sin(pointIndex * .2 + phase) * .08 + Math.sin(pointIndex * .08 - phase) * .04;
-    const yPosition = midline + rawValue * displayHeight * (data ? .39 : 1);
-
-    if (pointIndex === 0) context.moveTo(xPosition, yPosition);
-    else context.lineTo(xPosition, yPosition);
-  }
-  context.stroke();
-}
-
-function drawIdleWave(timestamp = 0) {
-  if (audioState.isRecording) return;
-  drawWave(null, timestamp / 1000);
-  audioState.animationFrame = window.requestAnimationFrame(drawIdleWave);
-}
-
-function summarizeLiveAudio() {
-  if (!audioState.analyser || !audioState.dataArray) return;
-
-  audioState.analyser.getByteTimeDomainData(audioState.dataArray);
-  const values = [...audioState.dataArray].map((value) => (value - 128) / 128);
-  const rms = Math.sqrt(average(values.map((value) => value ** 2)));
-  const zeroCrossings = values.reduce((crossingCount, value, sampleIndex) => {
-    if (sampleIndex === 0) return crossingCount;
-    return crossingCount + (Math.sign(value) !== Math.sign(values[sampleIndex - 1]) ? 1 : 0);
-  }, 0);
-
-  audioState.samples.push({ rms, zeroCrossings: zeroCrossings / values.length });
-  drawWave(audioState.dataArray);
-}
-
-function startWaveLoop() {
-  const loop = () => {
-    if (!audioState.isRecording) return;
-    summarizeLiveAudio();
-    audioState.animationFrame = window.requestAnimationFrame(loop);
-  };
-  audioState.animationFrame = window.requestAnimationFrame(loop);
-}
-
-async function cleanUpAudio() {
-  window.clearInterval(audioState.interval);
-  window.cancelAnimationFrame(audioState.animationFrame);
-
-  if (audioState.stream) {
-    audioState.stream.getTracks().forEach((track) => track.stop());
-  }
-  if (audioState.source) {
-    audioState.source.disconnect();
-  }
-  if (audioState.audioContext && audioState.audioContext.state !== "closed") {
-    await audioState.audioContext.close();
-  }
-
-  Object.assign(audioState, {
-    analyser: null,
-    audioContext: null,
-    dataArray: null,
-    interval: null,
-    mediaRecorder: null,
-    source: null,
-    stream: null,
-  });
-}
-
-function analyzeSamples(samples) {
-  const rmsValues = samples.map((sample) => sample.rms).filter((value) => value > 0);
-  const crossingValues = samples.map((sample) => sample.zeroCrossings).filter((value) => value > 0);
-
-  if (rmsValues.length < 5) {
-    return createDemoCheckIn(false);
-  }
-
-  const meanRms = average(rmsValues);
-  const variation = standardDeviation(rmsValues, meanRms) / Math.max(meanRms, .003);
-  const pauseRatio = rmsValues.filter((value) => value < meanRms * .44).length / rmsValues.length;
-  const meanCrossings = crossingValues.length ? average(crossingValues) : .04;
-  const variationScore = clamp(Math.round(variation * 38), 8, 81);
-  const pauseScore = Math.round(pauseRatio * 100);
-  const score = Math.round(clamp(83 - pauseRatio * 31 - variationScore * .4 + (meanRms > .025 && meanRms < .17 ? 4 : 0), 44, 90));
-  const isActivated = score < 62 || (pauseScore > 50 && variationScore > 34);
-  const paceMetric = clamp(Math.round(105 + meanCrossings * 2250), 85, 218);
-  const paceLabel = paceMetric > 174 ? "Quick" : paceMetric < 118 ? "Unhurried" : "Centered";
-  const energyLabel = variationScore > 42 ? "Variable" : variationScore < 20 ? "Even" : "Balanced";
-  const pauseLabel = pauseScore > 46 ? "Frequent" : pauseScore < 20 ? "Light" : "Present";
-  const state = isActivated ? "activated" : "steady";
-
-  return {
-    energyLabel,
-    paceLabel,
-    pauseLabel,
-    planIndex: 0,
-    score,
-    state,
-    summary: `Voice pace was ${paceLabel.toLowerCase()}, energy variation was ${energyLabel.toLowerCase()}, and pause space was ${pauseLabel.toLowerCase()}.`,
-  };
-}
-
-function createDemoCheckIn(activated = true) {
-  if (activated) {
-    return {
-      energyLabel: "Variable",
-      paceLabel: "Quick",
-      pauseLabel: "Frequent",
-      planIndex: 0,
-      score: 51,
-      state: "activated",
-      summary: "A demo check-in with quicker pacing, more energy variation, and frequent pause space.",
-    };
-  }
-
-  return {
-    energyLabel: "Balanced",
-    paceLabel: "Centered",
-    pauseLabel: "Present",
-    planIndex: 0,
-    score: 73,
-    state: "steady",
-    summary: "A demo check-in with a centered pace, balanced energy variation, and present pause space.",
-  };
-}
-
-function renderPlan() {
-  const plan = getPlan();
-  elements.planTitle.textContent = plan.title;
-  elements.planIntro.textContent = plan.intro;
-  elements.planList.innerHTML = plan.steps.map(([title, detail], stepIndex) => `
-    <li>
-      <span>${String(stepIndex + 1).padStart(2, "0")}</span>
-      <div><strong>${title}</strong><small>${detail}</small></div>
-    </li>
-  `).join("");
-}
-
-function updateCheckInUI() {
-  const plan = getPlan();
-  const isActivated = currentCheckIn.state === "activated";
-  const title = isActivated ? "Your system asks for space" : "Steady, with a soft edge";
-  const description = isActivated
-    ? "A lighter first step can keep today from asking more than you have."
-    : "A good day for meaningful work with intentional breathing room.";
-
-  elements.pulseTitle.textContent = title;
-  elements.pulseDescription.textContent = description;
-  elements.pulseScore.textContent = currentCheckIn.score;
-  elements.sidebarScore.textContent = currentCheckIn.score;
-  elements.scoreRing.style.setProperty("--score", currentCheckIn.score);
-  elements.sidebarProgress.style.width = `${currentCheckIn.score}%`;
-  elements.sidebarCopy.textContent = isActivated ? "Make the next step smaller." : "A steady place to begin.";
-  elements.paceValue.textContent = currentCheckIn.paceLabel;
-  elements.energyValue.textContent = currentCheckIn.energyLabel;
-  elements.pauseValue.textContent = currentCheckIn.pauseLabel;
-  elements.signalDot.classList.toggle("is-activated", isActivated);
-  elements.signalList.setAttribute("aria-label", currentCheckIn.summary);
-  renderPlan();
-}
-
-function addHistoryEntry() {
-  const plan = getPlan();
-  const entry = {
-    date: new Date().toISOString(),
-    score: currentCheckIn.score,
-    state: currentCheckIn.state,
-    title: plan.title,
-  };
-
-  const previousEntry = history.at(-1);
-  const isSameDay = previousEntry && new Date(previousEntry.date).toDateString() === new Date(entry.date).toDateString();
-  if (isSameDay) history[history.length - 1] = entry;
-  else history.push(entry);
-  history = history.slice(-14);
-  saveHistory();
-}
-
-function renderHistory() {
-  const recentEntries = [...history].slice(-4).reverse();
-  elements.historyList.innerHTML = recentEntries.map((entry) => {
-    const entryDate = new Date(entry.date);
-    const label = entryDate.toDateString() === new Date().toDateString() ? "Today" : shortDate(entryDate);
-    const stateLabel = entry.state === "activated" ? "Gentler plan" : "Focused plan";
-    return `
-      <article class="history-item">
-        <time>${label}</time>
-        <strong>${entry.score}<small>/100</small></strong>
-        <p>${stateLabel}</p>
-        <div class="history-meter"><span style="width:${entry.score}%"></span></div>
-      </article>
-    `;
-  }).join("");
-}
-
-function renderTrendChart() {
-  const chartEntries = history.slice(-7);
-  const scores = chartEntries.map((entry) => entry.score);
-  const maximum = 92;
-  const minimum = 38;
-  const chartWidth = 700;
-  const chartHeight = 245;
-  const horizontalPadding = 15;
-  const verticalPadding = 18;
-  const usableWidth = chartWidth - horizontalPadding * 2;
-  const usableHeight = chartHeight - verticalPadding * 2;
-  const points = scores.map((score, pointIndex) => {
-    const xPosition = horizontalPadding + (usableWidth / Math.max(scores.length - 1, 1)) * pointIndex;
-    const yPosition = verticalPadding + ((maximum - score) / (maximum - minimum)) * usableHeight;
-    return [xPosition, yPosition];
-  });
-  const pointString = points.map(([xPosition, yPosition]) => `${xPosition},${yPosition}`).join(" ");
-  const areaString = `${horizontalPadding},${chartHeight} ${pointString} ${chartWidth - horizontalPadding},${chartHeight}`;
-  const referenceLines = [60, 75].map((value) => {
-    const yPosition = verticalPadding + ((maximum - value) / (maximum - minimum)) * usableHeight;
-    return `<line x1="${horizontalPadding}" x2="${chartWidth - horizontalPadding}" y1="${yPosition}" y2="${yPosition}" stroke="#e9e6f1" stroke-dasharray="5 7" />`;
-  }).join("");
-  const circles = points.map(([xPosition, yPosition], pointIndex) => `<circle cx="${xPosition}" cy="${yPosition}" r="${pointIndex === points.length - 1 ? 6 : 4}" fill="#ffffff" stroke="#6b5ce7" stroke-width="${pointIndex === points.length - 1 ? 4 : 2}" />`).join("");
-
-  elements.trendChart.innerHTML = `
-    <defs>
-      <linearGradient id="area-gradient" x1="0" x2="0" y1="0" y2="1">
-        <stop offset="0%" stop-color="#8b7df0" stop-opacity=".24" />
-        <stop offset="100%" stop-color="#8b7df0" stop-opacity="0" />
-      </linearGradient>
-    </defs>
-    ${referenceLines}
-    <polygon points="${areaString}" fill="url(#area-gradient)" />
-    <polyline points="${pointString}" fill="none" stroke="#6b5ce7" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" />
-    ${circles}
-  `;
-  elements.trendDays.innerHTML = chartEntries.map((entry) => `<span>${new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(new Date(entry.date))}</span>`).join("");
-
-  const averageScore = Math.round(average(scores));
-  elements.trendInsight.textContent = averageScore >= 68
-    ? "Your baseline has enough room for focused work when you protect a real pause after the hard part."
-    : "Your recent rhythm makes small, deliberate starts more useful than pushing for a big first block.";
-}
-
-async function getCoachReflection() {
-  const plan = getPlan();
-  elements.coachSource.textContent = "Finding the right words…";
-
-  try {
-    const response = await fetch("/api/coach", {
-      body: JSON.stringify({
-        planTitle: plan.title,
-        state: currentCheckIn.state,
-        summary: currentCheckIn.summary,
-      }),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    });
-    const payload = await response.json();
-    if (!response.ok || !payload.message) throw new Error("No coach reflection available");
-    elements.coachMessage.textContent = payload.message;
-    elements.coachSource.textContent = payload.source === "openai" ? "GPT‑5.6 reflection" : "Local reflection";
-  } catch {
-    elements.coachMessage.textContent = currentCheckIn.state === "activated"
-      ? "You do not need to force a full-speed day. Choose the smallest true next step, then let the reset do some of the work."
-      : "You don’t need to earn a calm start. Begin with what matters, then protect the space around it.";
-    elements.coachSource.textContent = "Local reflection";
-  }
-}
-
-function applyCheckIn(checkIn, options = {}) {
-  currentCheckIn = { ...checkIn };
-  updateCheckInUI();
-  addHistoryEntry();
-  renderHistory();
-  renderTrendChart();
-  getCoachReflection();
-
-  if (options.toastMessage) showToast(options.toastMessage);
-}
-
-async function stopRecording() {
-  if (!audioState.isRecording) return;
-  audioState.isRecording = false;
-  elements.recordButton.classList.remove("is-recording");
-  elements.recordLabel.textContent = "Begin check-in";
-  elements.recordButton.disabled = true;
-  setWaveState("Reading your voice rhythm…");
-
-  if (audioState.mediaRecorder?.state === "recording") audioState.mediaRecorder.stop();
-  const checkIn = analyzeSamples(audioState.samples);
-  await cleanUpAudio();
-  drawWave();
-  elements.recordButton.disabled = false;
-  elements.recordTimer.textContent = "00:10";
-  setWaveState("Check-in complete");
-  applyCheckIn(checkIn, { toastMessage: "Your plan now matches this moment." });
-}
-
-async function startRecording() {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    showToast("Voice check-ins need a modern browser with microphone access. Try Run demo here.");
-    return;
-  }
-
-  window.cancelAnimationFrame(audioState.animationFrame);
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { autoGainControl: false, echoCancellation: true, noiseSuppression: true },
-    });
-    const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
-    const audioContext = new AudioContextConstructor();
-    await audioContext.resume();
-    const analyser = audioContext.createAnalyser();
-    analyser.fftSize = 1024;
-    const source = audioContext.createMediaStreamSource(stream);
-    source.connect(analyser);
-
-    audioState.analyser = analyser;
-    audioState.audioContext = audioContext;
-    audioState.dataArray = new Uint8Array(analyser.fftSize);
-    audioState.isRecording = true;
-    audioState.remaining = MAX_RECORDING_SECONDS;
-    audioState.samples = [];
-    audioState.source = source;
-    audioState.stream = stream;
-
-    if (window.MediaRecorder) {
-      audioState.mediaRecorder = new MediaRecorder(stream);
-      audioState.mediaRecorder.start();
-    }
-
-    elements.recordButton.classList.add("is-recording");
-    elements.recordLabel.textContent = "Finish early";
-    setWaveState("Listening on this device", true);
-    updateTimerLabel();
-    startWaveLoop();
-
-    audioState.interval = window.setInterval(() => {
-      audioState.remaining -= 1;
-      updateTimerLabel();
-      if (audioState.remaining <= 0) stopRecording();
-    }, 1000);
-  } catch (error) {
-    console.warn("Microphone unavailable:", error);
-    await cleanUpAudio();
-    drawIdleWave();
-    setWaveState("Microphone access was not granted");
-    showToast("No problem—use Run demo to explore the full experience.");
-  }
-}
-
-function handleRecordButton() {
-  if (audioState.isRecording) stopRecording();
-  else startRecording();
-}
-
-function showView(viewName) {
-  $$("[data-view]").forEach((view) => view.classList.toggle("is-visible", view.dataset.view === viewName));
-  $$("[data-view-target]").forEach((button) => button.classList.toggle("is-active", button.dataset.viewTarget === viewName));
-  elements.pageTitle.textContent = viewName === "dashboard" ? "Good morning, Alex." : viewName === "trends" ? "Your rhythm, with context." : "Pick a softer next move.";
-  $(".sidebar").classList.remove("is-open");
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-function openDialog(dialog) {
-  if (dialog.showModal) dialog.showModal();
-  else dialog.setAttribute("open", "");
-}
-
-function closeDialog(dialog) {
-  if (dialog.close) dialog.close();
-  else dialog.removeAttribute("open");
-}
-
-function startReset(name, minutes) {
-  resetState.remainingSeconds = minutes * 60;
-  resetState.running = true;
-  elements.timerName.textContent = `${minutes} minute reset`;
-  elements.timerTitle.textContent = name;
-  elements.timerInstruction.textContent = name === "Somatic reset"
-    ? "Relax your jaw. Let your shoulders move down. Stand and take one easy, longer exhale."
-    : name === "Visual distance"
-      ? "Look farther away than your screen. Find three gentle details and let your eyes soften."
-      : "Take two easy inhales through the nose, then let one long exhale empty the breath without forcing it.";
-  updateResetTimer();
-  openDialog(elements.timerDialog);
-  window.clearInterval(resetState.interval);
-  resetState.interval = window.setInterval(tickReset, 1000);
-}
-
-function updateResetTimer() {
-  $("#reset-timer").textContent = formatDuration(resetState.remainingSeconds);
-  elements.timerToggle.textContent = resetState.running ? "Pause reset" : "Continue reset";
-}
-
-function tickReset() {
-  if (!resetState.running) return;
-  resetState.remainingSeconds -= 1;
-  updateResetTimer();
-  if (resetState.remainingSeconds <= 0) {
-    resetState.running = false;
-    window.clearInterval(resetState.interval);
-    elements.timerToggle.textContent = "Reset complete";
-    showToast("Nice work. Notice what changed, even a little.");
-  }
-}
-
-function initializeEvents() {
-  elements.recordButton.addEventListener("click", handleRecordButton);
-  elements.demoButton.addEventListener("click", () => {
-    if (audioState.isRecording) stopRecording();
-    setWaveState("Demo rhythm loaded");
-    applyCheckIn(createDemoCheckIn(true), { toastMessage: "Demo mode: your plan shifted toward recovery." });
-  });
-
-  $("#refresh-plan").addEventListener("click", () => {
-    currentCheckIn.planIndex += 1;
-    renderPlan();
-    getCoachReflection();
-    showToast("A fresh version of today’s plan is ready.");
-  });
-  $("#refresh-coach").addEventListener("click", getCoachReflection);
-  $("#start-plan").addEventListener("click", () => {
-    const [firstStep] = getPlan().steps;
-    showToast(`Starting: ${firstStep[0]}. Keep it small and real.`);
-  });
-  $("#view-signals").addEventListener("click", () => openDialog($("#info-dialog")));
-  $("#open-guide").addEventListener("click", () => openDialog($("#info-dialog")));
-  $("#privacy-button").addEventListener("click", () => openDialog($("#info-dialog")));
-  $("#jump-to-checkin").addEventListener("click", () => elements.checkinCard.scrollIntoView({ behavior: "smooth", block: "center" }));
-  $("#mobile-menu").addEventListener("click", () => $(".sidebar").classList.toggle("is-open"));
-
-  $$("[data-view-target]").forEach((button) => button.addEventListener("click", () => showView(button.dataset.viewTarget)));
-  $$(".dialog-close").forEach((button) => button.addEventListener("click", () => closeDialog(button.closest("dialog"))));
-  $$(".reset-start").forEach((button) => button.addEventListener("click", () => startReset(button.dataset.reset, Number(button.dataset.minutes))));
-  elements.timerToggle.addEventListener("click", () => {
-    if (resetState.remainingSeconds <= 0) return;
-    resetState.running = !resetState.running;
-    updateResetTimer();
-  });
-  elements.timerDialog.addEventListener("close", () => {
-    window.clearInterval(resetState.interval);
-    resetState.running = false;
-  });
-  window.addEventListener("resize", () => drawWave());
-}
+async function startMonitoring() { if (!navigator.mediaDevices?.getUserMedia) return showToast("Room monitoring needs a modern browser with microphone access."); try { const stream = await navigator.mediaDevices.getUserMedia({ audio: { autoGainControl: false, echoCancellation: false, noiseSuppression: false } }); const Context = window.AudioContext || window.webkitAudioContext, context = new Context(); await context.resume(); const analyser = context.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = .75; const source = context.createMediaStreamSource(stream); source.connect(analyser); Object.assign(monitoring, { analyser, audioContext: context, dataArray: new Uint8Array(analyser.fftSize), frequencyArray: new Uint8Array(analyser.frequencyBinCount), isActive: true, samples: [], source, startedAt: Date.now(), stream }); elements.monitor.classList.add("is-monitoring"); elements.monitorLabel.textContent = "Stop room monitoring"; setWaveState("Listening only in this browser", true); monitorLoop(); } catch { showToast("Microphone access was not granted. You can still try the demo."); } }
+async function stopMonitoring() { monitoring.isActive = false; cancelAnimationFrame(monitoring.animationFrame); monitoring.stream?.getTracks().forEach((track) => track.stop()); monitoring.source?.disconnect(); await monitoring.audioContext?.close(); Object.assign(monitoring, { analyser: null, audioContext: null, source: null, stream: null }); elements.monitor.classList.remove("is-monitoring"); elements.monitorLabel.textContent = "Start room monitoring"; elements.monitorDuration.textContent = "Paused"; setWaveState("Room monitoring paused"); drawIdle(); stopSound(); }
+function runDemo() { const features = { activitySpike: .29, ambientFloor: .09, rustleDensity: .67 }; const previous = current.state, state = classify(features), action = chooseAction(state); updateQ(previous, current.action, state); current = { action, features, score: sleepScore(features, state), state }; renderCurrent(); addHistory(); renderHistory(); renderChart(); playAction(action); setWaveState("Demo disturbance analyzed"); showToast(`${actionLabel(action)} selected locally for this demo.`); }
+function showView(name) { $$('[data-view]').forEach((view) => view.classList.toggle('is-visible', view.dataset.view === name)); $$('[data-view-target]').forEach((button) => button.classList.toggle('is-active', button.dataset.viewTarget === name)); elements.pageTitle.textContent = name === "dashboard" ? "Baby’s Room Status" : name === "analytics" ? "Night Analytics" : "Manual Intervention Overrides"; $('.sidebar').classList.remove('is-open'); scrollTo({ top: 0, behavior: 'smooth' }); }
+function openDialog() { const dialog = $('#info-dialog'); dialog.showModal ? dialog.showModal() : dialog.setAttribute('open', ''); }
 
 function initialize() {
-  const date = new Date();
-  elements.todayDate.textContent = formatDate(date);
-  elements.voicePrompt.textContent = prompts[Math.floor(date.getDate() % prompts.length)];
-  updateCheckInUI();
-  renderHistory();
-  renderTrendChart();
-  initializeEvents();
-  drawIdleWave();
+  $('#today-date').textContent = formatDate(new Date()); renderCurrent(); renderHistory(); renderChart(); drawIdle();
+  elements.monitor.addEventListener('click', () => monitoring.isActive ? stopMonitoring() : startMonitoring()); elements.demo.addEventListener('click', runDemo); $('#next-response').addEventListener('click', () => { current.action = ACTIONS[(ACTIONS.indexOf(current.action) + 1) % ACTIONS.length]; playAction(current.action); renderCurrent(); showToast(`${actionLabel(current.action)} selected manually.`); });
+  $('#white-noise-button').addEventListener('click', () => { current.action = 'whiteNoise'; playAction('whiteNoise'); renderCurrent(); showToast('White noise will stop automatically in 5 minutes.'); }); elements.ambientToggle.addEventListener('click', () => { settings.ambientEnabled = !settings.ambientEnabled; saveModel(); elements.ambientToggle.innerHTML = `Ambient response: ${settings.ambientEnabled ? 'on' : 'off'} <span>→</span>`; if (!settings.ambientEnabled) stopSound(); renderCurrent(); }); elements.ambientToggle.innerHTML = `Ambient response: ${settings.ambientEnabled ? 'on' : 'off'} <span>→</span>`;
+  $('#reset-learning').addEventListener('click', () => { qTable = loadQTable(); localStorage.removeItem(Q_TABLE_KEY); qTable = loadQTable(); renderCurrent(); showToast('Local learned responses were reset.'); });
+  $$('.nav-item, [data-view-target]').forEach((button) => button.addEventListener('click', () => showView(button.dataset.viewTarget))); $('#open-guide').addEventListener('click', openDialog); $('#privacy-button').addEventListener('click', openDialog); $('#view-learning').addEventListener('click', openDialog); $('#jump-to-monitor').addEventListener('click', () => $('#monitor-card').scrollIntoView({ behavior: 'smooth', block: 'center' })); $('#mobile-menu').addEventListener('click', () => $('.sidebar').classList.toggle('is-open')); $('.dialog-close').addEventListener('click', () => $('#info-dialog').close()); addEventListener('resize', () => drawWave());
 }
-
 initialize();
