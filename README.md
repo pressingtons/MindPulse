@@ -8,6 +8,7 @@ It is not a medical device, certified baby monitor, or emergency detection servi
 ## Run the local-first app
 
 ```powershell
+npm run dev
 node server.mjs
 ```
 
