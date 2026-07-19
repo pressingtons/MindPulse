@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: mindpulse
+      POSTGRES_USER: mindpulse
+      POSTGRES_PASSWORD: mindpulse_dev
+    ports: ["5432:5432"]
+    volumes: ["mindpulse_postgres:/var/lib/postgresql/data"]
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://mindpulse:mindpulse_dev@db:5432/mindpulse
+      JWT_SECRET: change-me-before-production
+      CORS_ORIGINS: http://localhost:3000
+    ports: ["8000:8000"]
+    depends_on: [db]
+volumes:
+  mindpulse_postgres:
