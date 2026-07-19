@@ -1,98 +1,16 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="MindPulse is a local-first, adaptive baby sleep companion." />
-    <meta name="theme-color" content="#17223d" />
-    <title>MindPulse — Baby sleep companion</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <div class="glow glow-a"></div><div class="glow glow-b"></div>
-    <main class="app-shell">
-      <aside class="sidebar" aria-label="MindPulse navigation">
-        <a class="brand" href="#dashboard"><span class="brand-mark">⌁</span>mind<span>pulse</span></a>
-        <nav>
-          <button class="nav-item is-active" type="button" data-view-target="dashboard">⌂ <span>Room status</span></button>
-          <button class="nav-item" type="button" data-view-target="analytics">↗ <span>Night analytics</span></button>
-          <button class="nav-item" type="button" data-view-target="overrides">✦ <span>Manual overrides</span></button>
-        </nav>
-        <section class="sidebar-card">
-          <span class="eyebrow">Tonight’s sleep quality</span>
-          <strong><span id="sidebar-score">82</span><small>/100</small></strong>
-          <div class="mini-progress"><span id="sidebar-progress"></span></div>
-          <p id="sidebar-copy">A calm baseline so far.</p>
-        </section>
-        <button class="privacy-button" id="privacy-button" type="button">♧ <span>Private by design</span></button>
-      </aside>
-
-      <section class="content">
-        <header class="topbar">
-          <button class="mobile-menu" id="mobile-menu" type="button" aria-label="Open navigation">☰</button>
-          <div><p class="topbar-date" id="today-date"></p><h1 id="page-title">Baby’s Room Status</h1></div>
-          <button class="icon-button" id="open-guide" type="button" aria-label="How MindPulse works">?</button>
-        </header>
-
-        <section class="view is-visible" id="dashboard-view" data-view="dashboard">
-          <section class="welcome-card">
-            <div>
-              <span class="status-pill"><span></span> On-device sleep companion</span>
-              <h2>Gentle support for the long night.</h2>
-              <p>MindPulse listens for room-level sound patterns, then remembers which optional sound response has helped this room settle. It is a comfort tool, not a monitor or medical device.</p>
-              <button class="text-action" id="jump-to-monitor" type="button">Set up room monitoring <span>↓</span></button>
-            </div>
-            <div class="moon-graphic" aria-hidden="true"><i></i><b>✦</b><em>✦</em></div>
-          </section>
-
-          <div class="dashboard-grid">
-            <section class="card monitor-card" id="monitor-card">
-              <div class="card-heading"><div><span class="eyebrow">Room listener</span><h2>Listen for sleep patterns</h2></div><span class="time-chip" id="monitor-duration">Ready</span></div>
-              <p class="prompt">Place this device safely away from the sleep space. The microphone is analyzed only in browser memory; MindPulse never records or uploads raw audio.</p>
-              <div class="wave-shell" aria-label="Live room sound waveform">
-                <canvas id="waveform" width="740" height="176"></canvas>
-                <div class="wave-state" id="wave-state">Ready to listen locally</div><div class="recording-dot" id="recording-dot"></div>
-              </div>
-              <div class="monitor-controls"><button class="primary-button" id="monitor-button" type="button"><span class="record-icon"></span><span id="monitor-label">Start room monitoring</span></button><button class="secondary-button" id="demo-button" type="button">Run a disturbance demo</button></div>
-              <p class="fine-print">Tip: keep the device plugged in and allow microphone access. Check the room directly whenever you have a concern.</p>
-            </section>
-
-            <section class="card status-card">
-              <div class="card-heading compact"><div><span class="eyebrow">Sleep state</span><h2 id="sleep-state-title">Deep sleep</h2></div><span class="signal-dot" id="signal-dot"></span></div>
-              <div class="score-row"><div class="score-ring" id="score-ring"><span id="sleep-score">82</span></div><p id="sleep-description">Low activity and a steady room baseline.</p></div>
-              <div class="signal-list"><div><span>Activity spike</span><strong id="activity-value">Low</strong></div><div><span>Rustle density</span><strong id="rustle-value">Low</strong></div><div><span>Ambient floor</span><strong id="ambient-value">Quiet</strong></div></div>
-            </section>
-
-            <section class="card response-card">
-              <div class="card-heading compact"><div><span class="eyebrow">Current audio response</span><h2 id="response-title">No sound playing</h2></div><button class="icon-button subtle" id="next-response" type="button" aria-label="Choose another response">↻</button></div>
-              <p id="response-description">The local model is observing the room to learn a baseline.</p>
-              <div class="response-meter"><span id="response-meter"></span></div>
-              <div class="response-footer"><span id="learning-label">Local learning: starting fresh</span><button class="text-action small" id="view-learning" type="button">How it chooses <span>→</span></button></div>
-            </section>
-          </div>
-
-          <section class="recent-section"><div class="section-heading"><div><span class="eyebrow">Tonight’s timeline</span><h2>Recent sleep windows</h2></div><button class="text-action small" type="button" data-view-target="analytics">View night analytics <span>→</span></button></div><div class="history-list" id="history-list"></div></section>
-        </section>
-
-        <section class="view" id="analytics-view" data-view="analytics">
-          <section class="view-hero"><span class="status-pill"><span></span> Stored on this device</span><h2>Sleep Quality Over Time</h2><p>A simple 0–100 comfort signal derived from room activity, not a medical assessment or sleep diagnosis.</p></section>
-          <section class="card trend-card"><div class="card-heading compact"><div><span class="eyebrow">Last seven sessions</span><h2>Sleep Quality Over Time</h2></div><span class="trend-legend"><i></i> Local sleep signal</span></div><div class="chart-wrap"><svg id="trend-chart" viewBox="0 0 700 260" preserveAspectRatio="none" aria-label="Sleep quality trend chart"></svg></div><div class="chart-days" id="chart-days"></div></section>
-          <div class="insight-grid"><article class="insight-card"><span>✦</span><h3>What the room prefers</h3><p id="trend-insight">MindPulse will describe patterns after it has seen a few settled windows.</p></article><article class="insight-card"><span>⌁</span><h3>Privacy stays local</h3><p>Raw audio is never stored. Only small numeric sleep-quality summaries and the local response table are saved in this browser.</p></article></div>
-        </section>
-
-        <section class="view" id="overrides-view" data-view="overrides">
-          <section class="view-hero"><span class="status-pill"><span></span> Parent controls</span><h2>Manual Intervention Overrides</h2><p>Use a sound response when you decide it is helpful. These controls are optional and do not replace checking on your baby.</p></section>
-          <div class="override-grid">
-            <article class="override-card white"><span class="override-icon">≈</span><span class="eyebrow">5 minutes</span><h3>White noise block</h3><p>Play a steady, browser-generated white noise block.</p><button class="override-start" id="white-noise-button" type="button">Play for 5 minutes <span>→</span></button></article>
-            <article class="override-card pink"><span class="override-icon">⌁</span><span class="eyebrow">Toggle</span><h3>Ambient response</h3><p>Allow or pause MindPulse’s optional local sound choices.</p><button class="override-start" id="ambient-toggle" type="button">Ambient response: on <span>→</span></button></article>
-            <article class="override-card reset"><span class="override-icon">↻</span><span class="eyebrow">This device</span><h3>Reset learned responses</h3><p>Clear the local Q-table and start learning this room again.</p><button class="override-start" id="reset-learning" type="button">Reset local learning <span>→</span></button></article>
-          </div>
-        </section>
-      </section>
-    </main>
-
-    <dialog class="dialog" id="info-dialog"><button class="dialog-close" type="button" aria-label="Close">×</button><span class="eyebrow">How MindPulse works</span><h2>Transparent, local adaptation.</h2><p>MindPulse measures activity spikes, low-to-mid level rustling, and the room’s ambient floor. It groups those signals into Deep Sleep, Restless, or Active Disturbance, then uses a small on-device Q-table to try an optional sound response.</p><div class="dialog-list"><div><span>1</span><p><strong>Listen locally</strong> Audio samples stay in memory and are discarded immediately.</p></div><div><span>2</span><p><strong>Choose transparently</strong> The model scores No Noise, White Noise, Pink Noise, and Soft Lullaby.</p></div><div><span>3</span><p><strong>Remember locally</strong> Only numeric response scores are saved in local storage.</p></div></div><p class="fine-print">MindPulse does not detect emergencies, diagnose sleep, or provide medical guidance. Follow safe-sleep guidance and check on your baby whenever needed.</p></dialog>
-    <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="app.js"></script>
-  </body>
-</html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#141817"><meta name="description" content="MindPulse is a private, local-first baby sleep companion."><link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="styles.css"><title>MindPulse — sleep companion</title></head>
+<body>
+<main class="app-shell"><aside class="sidebar"><a class="brand" href="#dashboard"><i>⌁</i> mind<span>pulse</span></a><nav><button class="nav-item is-active" data-view-target="dashboard">Room status</button><button class="nav-item" data-view-target="progress">Progress <span class="account-lock">Account</span></button><button class="nav-item" data-view-target="settings">Settings</button></nav><section class="sidebar-card"><span class="eyebrow">Tonight's sleep quality</span><strong><span id="sidebar-score">82</span><small>/100</small></strong><div class="mini-progress"><span id="sidebar-progress"></span></div><p id="sidebar-copy">A calm baseline so far.</p></section><button class="quiet-button" id="auth-button">Sign in to save progress</button></aside>
+<section class="content"><header class="topbar"><button class="mobile-menu" id="mobile-menu" aria-label="Open navigation">☰</button><div><p id="today-date" class="topbar-date"></p><h1 id="page-title">Baby's Room Status</h1></div><button class="icon-button" id="open-guide" aria-label="How MindPulse works">?</button></header>
+<section class="view is-visible" data-view="dashboard"><section class="hero"><div><span class="status-pill"><i></i> <span id="monitoring-status">Ready when you are</span></span><h2>Quietly present through the night.</h2><p>MindPulse hears room-level patterns on this device and can respond with a gentle sound. It is not a medical device or certified baby monitor.</p><button class="text-action" id="jump-to-monitor">Set up monitoring ↓</button></div><div class="moon" aria-hidden="true"></div></section>
+<div class="dashboard-grid"><section class="card monitor-card" id="monitor-card"><div class="card-heading"><div><span class="eyebrow">Room listener</span><h2>Local sound monitoring</h2></div><span class="time-chip" id="monitor-duration">Ready</span></div><p class="prompt">Keep this device plugged in, screen-on, and in the foreground for the most reliable browser monitoring. No raw audio is recorded or uploaded.</p><div class="wave-shell"><canvas id="waveform" width="740" height="176"></canvas><div class="wave-state" id="wave-state">Ready to listen locally</div><div class="listening-dot" id="recording-dot"></div></div><div class="monitor-controls"><button class="primary-button" id="monitor-button"><span></span><b id="monitor-label">Start room monitoring</b></button><button class="secondary-button" id="demo-button">Run demo</button></div><p class="fine-print">Sound is capped at a low level. Keep sound machines under 50 dB and at least 7 feet from the crib, per AAP guidance.</p></section>
+<section class="card state-card"><div class="card-heading"><div><span class="eyebrow">Sleep state</span><h2 id="sleep-state-title">Deep sleep</h2></div><span class="signal-dot" id="signal-dot"></span></div><div class="score-row"><div class="score-ring" id="score-ring"><span id="sleep-score">82</span></div><p id="sleep-description">Low activity and a steady room baseline.</p></div><div class="signal-list"><div><span>Activity spike</span><strong id="activity-value">Low</strong></div><div><span>Rustle density</span><strong id="rustle-value">Low</strong></div><div><span>Ambient floor</span><strong id="ambient-value">Quiet</strong></div></div></section>
+<section class="card response-card"><div class="card-heading"><div><span class="eyebrow">Current audio response</span><h2 id="response-title">No sound playing</h2></div><button class="icon-button" id="next-response" aria-label="Choose another response">↻</button></div><p id="response-description">The local model is observing the room to learn a baseline.</p><div class="response-meter"><span id="response-meter"></span></div><div class="response-footer"><span id="learning-label">Local learning: starting fresh</span><button class="text-action" id="view-learning">How it chooses →</button></div></section></div>
+<section class="recent"><div class="section-heading"><div><span class="eyebrow">Tonight's timeline</span><h2>Recent sleep windows</h2></div><button class="text-action" data-view-target="progress">See progress →</button></div><div class="history-list" id="history-list"></div></section></section>
+<section class="view" data-view="progress"><section class="view-hero"><span class="status-pill"><i></i> Account progress</span><h2>Sleep patterns, made useful.</h2><p>Sign in to keep derived session summaries across devices. The core room listener stays private and usable without an account.</p></section><div id="progress-locked" class="card account-panel"><h3>Save multi-night progress</h3><p>Create a free account to add a baby profile and keep 7/30-day trends, wake events, and the sound response that settles best. Raw audio never leaves this device.</p><button class="primary-button" id="progress-auth">Create account or sign in</button></div><div id="progress-content" hidden><div class="progress-cards"><article class="card metric"><span class="eyebrow">7-day quality</span><strong id="quality-7">—</strong></article><article class="card metric"><span class="eyebrow">30-day wake events</span><strong id="wake-count">—</strong></article><article class="card metric"><span class="eyebrow">Best resettling sound</span><strong id="best-noise">—</strong></article></div><section class="card trend-card"><div class="card-heading"><div><span class="eyebrow">Last 30 days</span><h2>Sleep quality over time</h2></div></div><div class="chart-wrap"><svg id="trend-chart" viewBox="0 0 700 260" preserveAspectRatio="none"></svg></div><div class="chart-days" id="chart-days"></div></section></div></section>
+<section class="view" data-view="settings"><section class="view-hero"><span class="status-pill"><i></i> Parent controls</span><h2>Settings that keep you in control.</h2><p>Nothing is uploaded unless you choose to sign in and save derived sleep events.</p></section><div class="settings-grid"><article class="card setting"><h3>Ambient response</h3><p>Let MindPulse choose an optional local sound response while monitoring.</p><button class="secondary-button" id="ambient-toggle">Ambient response: on</button></article><article class="card setting"><h3>Sound guardrail</h3><p>Output is deliberately capped. Keep sound machines under 50 dB and 7+ feet from the crib.</p><span class="safety-badge">Low-volume cap enabled</span></article><article class="card setting"><h3>Improve detection</h3><p>Share anonymous, derived feature numbers—not audio—to help research future on-device models.</p><label class="toggle"><input id="training-toggle" type="checkbox"><span></span> Help improve detection</label></article><article class="card setting"><h3>Local learning</h3><p>Clear this device's response preferences and start again.</p><button class="secondary-button" id="reset-learning">Reset local learning</button></article></div></section>
+</section></main>
+<dialog class="dialog" id="info-dialog"><button class="dialog-close" aria-label="Close">×</button><span class="eyebrow">How MindPulse works</span><h2>Local decisions, transparent choices.</h2><p>Audio is analyzed only in browser memory for activity spikes, rustle density, and ambient room noise. MindPulse can remember small numeric response scores locally, never recordings.</p><div class="dialog-list"><p><b>1</b> Listen locally — no audio files are created.</p><p><b>2</b> Classify room sound — Deep sleep, Restless, or Active disturbance.</p><p><b>3</b> Respond gently — No noise, White, Pink, Brown, or Soft Lullaby.</p></div><p class="fine-print">MindPulse does not detect breathing, apnea, emergencies, or health conditions. Check the room directly whenever you are concerned.</p></dialog>
+<dialog class="dialog" id="auth-dialog"><button class="dialog-close" aria-label="Close">×</button><span class="eyebrow">Account progress</span><h2>Save derived sleep history.</h2><p>Signing in never uploads audio. It lets MindPulse save session summaries such as sleep state, sound response, and sleep-quality score.</p><form id="auth-form"><label>Email<input id="auth-email" type="email" autocomplete="email" required></label><label>Password<input id="auth-password" type="password" minlength="8" autocomplete="current-password" required></label><label>Baby's name<input id="baby-name" maxlength="100" placeholder="Add or choose a baby profile"></label><div class="form-actions"><button class="primary-button" type="submit" data-auth-mode="signup">Create account</button><button class="secondary-button" type="submit" data-auth-mode="login">Sign in</button></div></form></dialog><div class="toast" id="toast" role="status"></div><script type="module" src="app.js"></script></body></html>
